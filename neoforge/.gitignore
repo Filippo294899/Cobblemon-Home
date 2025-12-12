@@ -1,0 +1,105 @@
+# Compiled class files
+*.class
+
+# Log files
+*.log
+
+# BlueJ files
+*.ctxt
+
+# Mobile Tools for Java (J2ME)
+.mtj.tmp/
+
+# Package Files (keep gradle-wrapper.jar)
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+!build/libs/cobblehome-*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Virtual machine crash logs
+hs_err_pid*
+replay_pid*
+
+# Kotlin
+.kotlin/
+kotlin-ic/
+
+# ===== Gradle =====
+.gradle/
+# Exclude build directory but keep the mod JAR
+build/*
+!build/libs/
+build/libs/*
+!build/libs/cobblehome-*.jar
+out/
+bin/
+
+# ===== IDE Files =====
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse
+.classpath
+.project
+.settings/
+*.launch
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# NetBeans
+nbproject/
+nbbuild/
+nbdist/
+.nb-gradle/
+
+# ===== Minecraft/NeoForge Runtime =====
+# Run directories (created when testing the mod)
+run/
+runs/
+logs/
+
+# Loom cache
+.cache/
+remappedSrc/
+
+# Minecraft server files
+server.properties
+eula.txt
+banned-ips.json
+banned-players.json
+ops.json
+usercache.json
+usernamecache.json
+whitelist.json
+
+# ===== OS Files =====
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+.directory
+
+# ===== Misc =====
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~.nib
