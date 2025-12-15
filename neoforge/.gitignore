@@ -12,6 +12,7 @@
 
 # Package Files (keep gradle-wrapper.jar)
 *.jar
+!libs/sgui-*.jar
 !gradle/wrapper/gradle-wrapper.jar
 !build/libs/cobblehome-*.jar
 *.war

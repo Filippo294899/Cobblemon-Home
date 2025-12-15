@@ -5,7 +5,7 @@
   "name": "CobbleHome",
   "description": "A MDK useful for Fabric Development",
   "authors": [
-    "The Cobblemon Team"
+    "Filippo294899"
   ],
   "license": "MIT License",
   "icon": "null",
@@ -14,7 +14,7 @@
     "main": [
       {
         "adapter": "kotlin",
-        "value": "com.cobblemain.Main"
+        "value": "com.cobblehome.Main"
       }
     ]
   },
