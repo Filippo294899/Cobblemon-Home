@@ -7,10 +7,12 @@ import com.cobblemon.mod.common.item.PokemonItem
 import com.cobblemon.mod.common.pokemon.Pokemon
 import com.cobblemon.mod.common.util.party
 import database.DatabaseManager
+import database.DbScope
 import eu.pb4.sgui.api.gui.SimpleGui
 import eu.pb4.sgui.api.elements.GuiElementBuilder
 import gui.TranslationConfig
 import gui.Util
+import kotlinx.coroutines.launch
 import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.screen.ScreenHandlerType
 import net.minecraft.item.Items
@@ -46,28 +48,31 @@ class Confirm(
             .setName(Util.parseColorCodes(tscfg.confirm))
             .addLoreLine(Util.parseColorCodes(tscfg.depositline.replace("<pokemonname>" , "${pokemonName}")))
             .setCallback { _, _, _, _ ->
-                try {
-                    val success = dbm.depositPokemon(
-                        uuid = player.uuidAsString,
-                        boxNumber = null,
-                        slot = null,
-                        pokemon = pokemon
-                    )
-
-                    if (success) {
-                        player.party().remove(pokemon)
-                        player.sendMessage(Util.parseColorCodes(tscfg.succesfullydeposited.replace("<pokemonname>" , "${pokemonName}")), false)
-                        this.close()
-                        MainMenu(player, dbm,tscfg).open()
-                    } else {
-                        player.sendMessage(Util.parseColorCodes(tscfg.errordepositing), false)
-                        this.close()
-                        DepositGui(player, dbm,tscfg).open()
+                val server = player.server
+                DbScope.launch {
+                    val success = try {
+                        dbm.depositPokemon(
+                            uuid = player.uuidAsString,
+                            boxNumber = null,
+                            slot = null,
+                            pokemon = pokemon
+                        )
+                    } catch (e: Exception) {
+                        false
                     }
-                } catch (e: Exception) {
-                    player.sendMessage(Util.parseColorCodes(tscfg.errordepositing), false)
-                    this.close()
-                    DepositGui(player, dbm,tscfg).open()
+
+                    server?.execute {
+                        if (success) {
+                            player.party().remove(pokemon)
+                            player.sendMessage(Util.parseColorCodes(tscfg.succesfullydeposited.replace("<pokemonname>", "${pokemonName}")), false)
+                            this@Confirm.close()
+                            MainMenu(player, dbm, tscfg).open()
+                        } else {
+                            player.sendMessage(Util.parseColorCodes(tscfg.errordepositing), false)
+                            this@Confirm.close()
+                            DepositGui(player, dbm, tscfg).open()
+                        }
+                    }
                 }
             }
         )

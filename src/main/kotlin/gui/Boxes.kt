@@ -1,31 +1,36 @@
 package guis
 
-import com.cobblemon.mod.common.CobblemonItems
-import com.cobblemon.mod.common.api.text.bold
-import com.cobblemon.mod.common.api.text.green
 import com.cobblemon.mod.common.item.PokemonItem
-import com.cobblemon.mod.common.util.party
 import database.DatabaseManager
+import database.DbScope
 import database.dbpokemon
-import eu.pb4.sgui.api.gui.SimpleGui
 import eu.pb4.sgui.api.elements.GuiElementBuilder
+import eu.pb4.sgui.api.gui.SimpleGui
 import gui.TranslationConfig
 import gui.Util
-import net.minecraft.server.network.ServerPlayerEntity
-import net.minecraft.screen.ScreenHandlerType
-import net.minecraft.item.ItemStack
+import kotlinx.coroutines.launch
 import net.minecraft.item.Items
-import net.minecraft.text.Text
+import net.minecraft.screen.ScreenHandlerType
+import net.minecraft.server.network.ServerPlayerEntity
 
 class HomeBoxesGui(
     player: ServerPlayerEntity,
     var dbm: DatabaseManager,
-    var tscfg : TranslationConfig
+    var tscfg: TranslationConfig
 ) : SimpleGui(ScreenHandlerType.GENERIC_9X6, player, false) {
 
     private var currentPage = 0
     private val totalPages = 30
     private val itemsPerPage = 30
+
+    private val pokemonSlots = intArrayOf(
+        4,
+        10, 11, 12, 13, 14, 15, 16,
+        19, 20, 21, 22, 23, 24, 25,
+        28, 29, 30, 31, 32, 33, 34,
+        37, 38, 39, 40, 41, 42, 43,
+        49
+    )
 
     init {
         update()
@@ -35,35 +40,44 @@ class HomeBoxesGui(
         clearSlots()
         val currentBox = currentPage + 1
 
-        // Titolo
         this.title = Util.parseColorCodes(
             tscfg.currentbox
                 .replace("<currentbox>", currentBox.toString())
                 .replace("<max>", totalPages.toString())
         )
 
-        val pokemonsInBox = dbm.getPokemonsFromBox(player.uuidAsString, currentBox)
+        renderNav(currentBox)
+        renderPlaceholders(currentBox)
 
-        val pokemonSlots = intArrayOf(
+        val uuid = player.uuidAsString
+        val server = player.server
+        DbScope.launch {
+            val pokemonsInBox = dbm.getPokemonsFromBox(uuid, currentBox)
+            server?.execute { renderPokemon(currentBox, pokemonsInBox) }
+        }
+    }
 
-            4,
-            10, 11, 12, 13, 14, 15, 16,
-            19, 20, 21, 22, 23, 24, 25,
-            28, 29, 30, 31, 32, 33, 34,
-            37, 38, 39, 40, 41, 42, 43,
+    private fun renderPlaceholders(currentBox: Int) {
+        for (i in 0 until itemsPerPage) {
+            val slot = pokemonSlots[i]
+            setSlot(slot, GuiElementBuilder(Items.WHITE_STAINED_GLASS_PANE)
+                .setName(Util.parseColorCodes(tscfg.slot.replace("<index>", (i + 1).toString())))
+                .addLoreLine(Util.parseColorCodes(
+                    tscfg.box
+                        .replace("<currentbox>", currentBox.toString())
+                        .replace("<index>", (i + 1).toString())
+                )))
+        }
+    }
 
-            49
-        )
-
+    private fun renderPokemon(currentBox: Int, pokemonsInBox: List<dbpokemon>) {
         for (i in 0 until itemsPerPage) {
             val slot = pokemonSlots[i]
             val pokemonData = pokemonsInBox.getOrNull(i)
-
-            val element = if (pokemonData?.pokemon != null) {
-                val pokemon = pokemonData.pokemon
-                val pokemonName = pokemon?.nickname?.string ?: pokemon?.species?.name
-
-                GuiElementBuilder(PokemonItem.from(pokemon!!))
+            if (pokemonData?.pokemon != null) {
+                val pokemon = pokemonData.pokemon!!
+                val pokemonName = pokemon.nickname?.string ?: pokemon.species.name
+                setSlot(slot, GuiElementBuilder(PokemonItem.from(pokemon))
                     .setName(Util.parseColorCodes("$pokemonName"))
                     .addLoreLine(Util.parseColorCodes(
                         tscfg.level.replace("<pokemonLevel>", pokemon.level.toString())
@@ -76,22 +90,12 @@ class HomeBoxesGui(
                     .setCallback { _, _, _, _ ->
                         this.close()
                         ConfirmWithdraw(player, pokemonData, dbm, tscfg).open()
-                    }
-            } else {
-                GuiElementBuilder(Items.WHITE_STAINED_GLASS_PANE)
-                    .setName(Util.parseColorCodes(
-                        tscfg.slot.replace("<index>", (i + 1).toString())
-                    ))
-                    .addLoreLine(Util.parseColorCodes(
-                        tscfg.box
-                            .replace("<currentbox>", currentBox.toString())
-                            .replace("<index>", (i + 1).toString())
-                    ))
+                    })
             }
-
-            setSlot(slot, element)
         }
+    }
 
+    private fun renderNav(currentBox: Int) {
         setSlot(0, GuiElementBuilder(Items.RED_DYE)
             .setName(Util.parseColorCodes(tscfg.back))
             .setCallback { _, _, _, _ ->
@@ -126,8 +130,6 @@ class HomeBoxesGui(
     }
 
     private fun clearSlots() {
-        for (i in 0 until 54) {
-            clearSlot(i)
-        }
+        for (i in 0 until 54) clearSlot(i)
     }
 }

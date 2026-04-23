@@ -7,8 +7,9 @@ import com.cobblemon.mod.common.item.PokemonItem
 import com.cobblemon.mod.common.pokemon.Pokemon
 import com.cobblemon.mod.common.util.party
 import database.DatabaseManager
-import database.StoredPokemon
+import database.DbScope
 import database.dbpokemon
+import kotlinx.coroutines.launch
 import eu.pb4.sgui.api.gui.SimpleGui
 import eu.pb4.sgui.api.elements.GuiElementBuilder
 import gui.TranslationConfig
@@ -50,14 +51,18 @@ class ConfirmWithdraw(
             .setName(Util.parseColorCodes(tscfg.confirm))
             .addLoreLine(Util.parseColorCodes(tscfg.infowithdrawnl1))
             .setCallback { _, _, _, _ ->
-
-                if(dbm.removePokemon(player.uuidAsString, dbpokemon.box,dbpokemon.slot)!=null){
-                    player.party().add(pokemon)
-                    player.sendMessage(Util.parseColorCodes(tscfg.succesfullywithdrawn))
-                    this.close()
-                    MainMenu(player,dbm,tscfg).open()
+                val server = player.server
+                DbScope.launch {
+                    val removed = dbm.removePokemon(player.uuidAsString, dbpokemon.box, dbpokemon.slot)
+                    server?.execute {
+                        if (removed != null) {
+                            player.party().add(pokemon)
+                            player.sendMessage(Util.parseColorCodes(tscfg.succesfullywithdrawn))
+                            this@ConfirmWithdraw.close()
+                            MainMenu(player, dbm, tscfg).open()
+                        }
+                    }
                 }
-
             }
         )
 

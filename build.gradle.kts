@@ -1,3 +1,4 @@
+
 plugins {
     id("java")
     id("dev.architectury.loom") version "1.11-SNAPSHOT"
@@ -32,7 +33,7 @@ dependencies { minecraft("net.minecraft:minecraft:1.21.1")
     modImplementation(fabricApi.module("fabric-command-api-v2", "0.104.0+1.21.1"))
 
     modImplementation("net.fabricmc:fabric-language-kotlin:1.12.3+kotlin.2.0.21")
-    modImplementation("com.cobblemon:fabric:1.6.1+1.21.1")
+    modImplementation("com.cobblemon:fabric:1.7.3+1.21.1")
 
     //gui
     modImplementation("eu.pb4:sgui:1.6.1+1.21.1")
@@ -58,6 +59,10 @@ dependencies { minecraft("net.minecraft:minecraft:1.21.1")
     modImplementation("mysql:mysql-connector-java:8.0.33")
     modImplementation("com.mysql:mysql-connector-j:8.0.33")
     include("com.mysql:mysql-connector-j:8.0.33")
+
+    // Per SQLite
+    modImplementation("org.xerial:sqlite-jdbc:3.46.0.0")
+    include("org.xerial:sqlite-jdbc:3.46.0.0")
 
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")

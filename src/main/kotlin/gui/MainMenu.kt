@@ -35,11 +35,11 @@ class MainMenu(
     private fun update() {
 
         clearSlots()
-        //selezione del porco dio
+
 
 
         this.title = Util.parseColorCodes(tscfg.title)
-        player.sendMessage(Text.literal(player.uuidAsString))
+
 
         setSlot(
             3, GuiElementBuilder(Items.CHEST)

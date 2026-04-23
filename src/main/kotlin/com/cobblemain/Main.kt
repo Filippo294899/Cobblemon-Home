@@ -1,30 +1,29 @@
 package com.cobblemain
 
-import com.cobblemon.mod.common.api.storage.adapter.conversions.ReforgedConversion
 import config.Config
-
 import database.DatabaseManager
-import database.MysqlDatabaseManager
-import database.loadDBConfig
+import database.DbScope
 import events.OnJoinEvent
-
+import kotlinx.coroutines.launch
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.minecraft.server.command.CommandManager
 import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.text.Text
 import guis.*
 import net.minecraft.command.argument.EntityArgumentType
-import java.util.concurrent.CompletableFuture
-import com.cobblemon.mod.common.api.storage.adapter.conversions.ReforgedConversion.Translator
 import gui.TranslationConfig
 import gui.Util
+import net.minecraft.server.MinecraftServer
 
 object Main : ModInitializer {
+    // Usa nullable invece di lateinit per evitare l'errore
+    private var server: MinecraftServer? = null
+    private var db: DatabaseManager? = null
+    private lateinit var tscfg: TranslationConfig
 
-    override fun onInitialize()
-    {
-
+    override fun onInitialize() {
         println("INITIALIZING COBBLEMON HOME")
         println("""
              .----------------.  .----------------.  .----------------.  .----------------.  .----------------.  .----------------.  .----------------.  .----------------.  .----------------.  .-----------------.  .----------------.  .----------------.  .----------------.  .----------------.   
@@ -42,22 +41,27 @@ object Main : ModInitializer {
             
         """.trimIndent())
 
-
-
-
-
         // First load the config to ensure files exist
         val cfg = Config()
         cfg.load()
 
-        var tscfg = TranslationConfig()
+        tscfg = TranslationConfig()
         tscfg.load()
         println("CobblemonHome[config] loaded!")
 
-        var Db : MysqlDatabaseManager = MysqlDatabaseManager()
+        // NON inizializzare Db qui! Usa SERVER_STARTING invece di SERVER_STARTED
+        ServerLifecycleEvents.SERVER_STARTING.register { serverInstance ->
+            server = serverInstance
 
-        Db.connect()
-        println("""
+            println("Server starting - initializing database...")
+
+            try {
+                // Ora che abbiamo il server, possiamo creare Db
+                db = DatabaseManager(serverInstance)
+                db?.loadconfig()
+                db?.connect()
+
+                println("""
     ${'$'}${'$'}\                                               ${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}\  ${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}\         ${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}\   ${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}\  ${'$'}${'$'}\   ${'$'}${'$'}\ ${'$'}${'$'}\   ${'$'}${'$'}\ ${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}\  ${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}\ ${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}\ ${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}\ ${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}\  
 ${'$'}${'$'} |                                              ${'$'}${'$'}  __${'$'}${'$'}\ ${'$'}${'$'}  __${'$'}${'$'}\       ${'$'}${'$'}  __${'$'}${'$'}\ ${'$'}${'$'}  __${'$'}${'$'}\ ${'$'}${'$'}${'$'}\  ${'$'}${'$'} |${'$'}${'$'}${'$'}\  ${'$'}${'$'} |${'$'}${'$'}  _____|${'$'}${'$'}  __${'$'}${'$'}\\__${'$'}${'$'}  __|${'$'}${'$'}  _____|${'$'}${'$'}  __${'$'}${'$'}\ 
 ${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}\   ${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}\  ${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}\${'$'}${'$'}${'$'}${'$'}\   ${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}\        ${'$'}${'$'} |  ${'$'}${'$'} |${'$'}${'$'} |  ${'$'}${'$'} |      ${'$'}${'$'} /  \__|${'$'}${'$'} /  ${'$'}${'$'} |${'$'}${'$'}${'$'}${'$'}\ ${'$'}${'$'} |${'$'}${'$'}${'$'}${'$'}\ ${'$'}${'$'} |${'$'}${'$'} |      ${'$'}${'$'} /  \__|  ${'$'}${'$'} |   ${'$'}${'$'} |      ${'$'}${'$'} |  ${'$'}${'$'} |
@@ -70,34 +74,48 @@ ${'$'}${'$'} |  ${'$'}${'$'} |\${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}  |${'$'}${'$
                                                                                                                                                                      
                                                                                                                                                                              
             
-        """.trimIndent())
+                """.trimIndent())
 
+                // Inizializza gli eventi dopo che il database è pronto
+                if (db != null) {
+                    OnJoinEvent(db!!).start_listening()
+                    println("Event listeners registered successfully!")
+                }
+            } catch (e: Exception) {
+                println("ERROR initializing database: ${e.message}")
+                e.printStackTrace()
+            }
+        }
 
-
-
-        // Then set up event listeners and commands
-
-        OnJoinEvent(Db).start_listening()
-
-
+        // I comandi possono essere registrati qui, ma devono gestire il caso in cui Db non sia ancora inizializzato
         CommandRegistrationCallback.EVENT.register { dispatcher, registryAccess, environment ->
-
             dispatcher.register(
                 CommandManager.literal("cobblemon-home")
                     .executes { context ->
-
                         val player = context.source.player
+                        val currentDb = db
+
                         if (player != null) {
-                            if (!Db.playerExists(player.uuidAsString)) Db.addPlayer(player.uuidAsString)
-                            if (player is ServerPlayerEntity) {
-                                try {
-                                    MainMenu(player, Db,tscfg).open()
-                                } catch (e: Error) {
-                                    println(e)
+                            if (currentDb == null) {
+                                player.sendMessage(Text.literal("§cDatabase not initialized. Retry in a few"), false)
+                                return@executes 0
+                            }
+
+                            val srv = context.source.server
+                            DbScope.launch {
+                                currentDb.ensurePlayerInitialized(player.uuidAsString)
+                                srv.execute {
+                                    if (player is ServerPlayerEntity) {
+                                        try {
+                                            MainMenu(player, currentDb, tscfg).open()
+                                        } catch (e: Error) {
+                                            println(e)
+                                        }
+                                    }
                                 }
                             }
                         }
-                        1
+                         1
                     }
 
                     // 🔹 /cobblemon-home resetboxes
@@ -105,19 +123,27 @@ ${'$'}${'$'} |  ${'$'}${'$'} |\${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}  |${'$'}${'$
                         CommandManager.literal("resetboxes")
                             .executes { context ->
                                 val player = context.source.player
+                                val currentDb = db
+
                                 if (player == null) {
                                     context.source.sendError(Text.literal("only players can use this command"))
                                     return@executes 0
                                 }
 
-                                val uuid = player.uuidAsString
-                                if (!Db.playerExists(uuid)) {
-                                    Db.addPlayer(uuid)
+                                if (currentDb == null) {
+                                    context.source.sendError(Text.literal("§cDatabase not initialized"))
+                                    return@executes 0
                                 }
 
-                                Db.resetBoxes(uuid)
-
-                                player.sendMessage( Util.parseColorCodes( tscfg.resetboxes.replace("<user>" ,context.source.name.toString())), false)
+                                val uuid = player.uuidAsString
+                                val srv = context.source.server
+                                DbScope.launch {
+                                    currentDb.ensurePlayerInitialized(uuid)
+                                    currentDb.resetBoxes(uuid)
+                                    srv.execute {
+                                        player.sendMessage(Util.parseColorCodes(tscfg.resetboxes.replace("<user>", context.source.name.toString())), false)
+                                    }
+                                }
 
                                 1
                             }
@@ -126,7 +152,7 @@ ${'$'}${'$'} |  ${'$'}${'$'} |\${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}  |${'$'}${'$
                         CommandManager.literal("reload")
                             .requires { source -> source.hasPermissionLevel(2) }
                             .executes { context ->
-                                var player = context.source.player
+                                val player = context.source.player
                                 tscfg.load()
 
                                 player?.sendMessage(Util.parseColorCodes(tscfg.reloadCommand), false)
@@ -142,31 +168,42 @@ ${'$'}${'$'} |  ${'$'}${'$'} |\${'$'}${'$'}${'$'}${'$'}${'$'}${'$'}  |${'$'}${'$
                                 CommandManager.argument("target", EntityArgumentType.player())
                                     .requires { source -> source.hasPermissionLevel(2) } // solo admin
                                     .executes { context ->
-                                        val target = EntityArgumentType.getPlayer(context, "target")
-                                        val uuid = target.uuidAsString
-
-                                        if (!Db.playerExists(uuid)) {
-                                            Db.addPlayer(uuid)
+                                        val currentDb = db
+                                        if (currentDb == null) {
+                                            context.source.sendError(Text.literal("§cDatabase not initialized"))
+                                            return@executes 0
                                         }
 
-                                        Db.resetBoxes(uuid)
+                                        val target = EntityArgumentType.getPlayer(context, "target")
+                                        val uuid = target.uuidAsString
+                                        val srv = context.source.server
 
-                                        context.source.sendFeedback(
-                                            { Util.parseColorCodes( tscfg.adminresetboxesuser.replace("<user>" , target.name.string).replace("<admin>" , context.source.name.toString())) },
-                                            true
-                                        )
+                                        DbScope.launch {
+                                            currentDb.ensurePlayerInitialized(uuid)
+                                            currentDb.resetBoxes(uuid)
+                                            srv.execute {
+                                                context.source.sendFeedback(
+                                                    { Util.parseColorCodes(tscfg.adminresetboxesuser.replace("<user>", target.name.string).replace("<admin>", context.source.name.toString())) },
+                                                    true
+                                                )
 
-                                        target.sendMessage(
-                                            Util.parseColorCodes( tscfg.resetBoxesuser.replace("<user>" , target.name.string).replace("<admin>" , context.source.name.toString())),
-                                            false
-                                        )
-
+                                                target.sendMessage(
+                                                    Util.parseColorCodes(tscfg.resetBoxesuser.replace("<user>", target.name.string).replace("<admin>", context.source.name.toString())),
+                                                    false
+                                                )
+                                            }
+                                        }
 
                                         1
                                     }
                             )
                     )
             )
-
         }
-}}
+    }
+
+    // Metodo helper per ottenere il database
+    fun getDatabase(): DatabaseManager? = db
+
+    fun getServer(): MinecraftServer? = server
+}

@@ -41,11 +41,13 @@ class Config {
     private fun createDefaultDBConfig(file: File) {
         val defaultConfig = mapOf(
             "enabled" to true,
+            "type" to "sqlite",
+            "file" to "config/cobblemonhome/db/cobblemonhome.db",
             "host" to "localhost",
-            "port" to 3301,
+            "port" to 3306,
             "database" to "cobblemon",
-            "user" to "mysql",
-            "password" to "password123",
+            "user" to "root",
+            "password" to "password",
             "useSSL" to false
         )
 
